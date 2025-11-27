@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>고객 상담 테스트 페이지</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #666;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        .chat-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 18px 50px;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .chat-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+        }
+
+        .chat-button:active {
+            transform: translateY(-1px);
+        }
+
+        .info-box {
+            margin-top: 50px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            text-align: left;
+        }
+
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .info-box ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .info-box li {
+            padding: 10px 0;
+            color: #555;
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+
+        .info-box li:before {
+            content: "✓ ";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .widget-status {
+            margin-top: 30px;
+            padding: 15px;
+            background: #e7f3ff;
+            border-left: 4px solid #1f93ff;
+            border-radius: 5px;
+            font-size: 0.95rem;
+            color: #0066cc;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .container {
+                padding: 40px 25px;
+            }
+
+            .chat-button {
+                padding: 15px 40px;
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>고객 상담 테스트</h1>
+        <p class="subtitle">
+            우측 하단의 채팅 버튼을 클릭하거나<br>
+            아래 버튼을 클릭하여 상담을 시작하세요
+        </p>
+
+        <button class="chat-button" onclick="openChat()">
+            💬 상담 시작하기
+        </button>
+
+        <div class="info-box">
+            <h3>📋 테스트 방법</h3>
+            <ul>
+                <li><strong>고객 화면:</strong> 이 페이지 (현재 보고 계신 페이지)</li>
+                <li><strong>상담원 화면:</strong> <a href="http://localhost:3000" target="_blank">http://localhost:3000</a>에 로그인</li>
+                <li>이 페이지에서 채팅을 시작하면 상담원 대시보드에 알림이 표시됩니다</li>
+                <li>양쪽 화면을 모두 열어두고 실시간 대화를 테스트해보세요</li>
+            </ul>
+        </div>
+
+        <div class="widget-status">
+            <strong>💡 팁:</strong> 우측 하단에 보라색 채팅 아이콘이 보이면 위젯이 정상적으로 로드된 것입니다.
+        </div>
+    </div>
+
+    <!-- Chatwoot Widget Script -->
+    <script>
+        (function(d,t) {
+            var BASE_URL = "http://localhost:3000";
+            var g = d.createElement(t), s = d.getElementsByTagName(t)[0];
+            g.src = BASE_URL + "/packs/js/sdk.js";
+            g.defer = true;
+            g.async = true;
+            s.parentNode.insertBefore(g,s);
+            g.onload = function(){
+                window.chatwootSDK.run({
+                    websiteToken: 'vpkM8vfzgMMykZ1mbzrhLd2e',
+                    baseUrl: BASE_URL
+                });
+            };
+        })(document,"script");
+
+        function openChat() {
+            if (window.$chatwoot) {
+                window.$chatwoot.toggle();
+            } else {
+                alert('채팅 위젯이 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.');
+            }
+        }
+    </script>
+</body>
+</html>
