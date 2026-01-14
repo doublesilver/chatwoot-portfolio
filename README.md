@@ -1,317 +1,221 @@
-# Chatwoot Custom Setup Guide
+# 💬 Self-Hosted Chatwoot: Enterprise Customer Support Suite
 
-> **오픈소스 고객 지원 플랫폼 Chatwoot를 Docker로 5분 내 설치하는 가이드**
+> **"오픈소스의 자유로움 + 엔터프라이즈급 성능"**
+>
+> Docker 기반으로 5분 만에 구축하는 Omni-channel 고객 지원 플랫폼
 
 <div align="center">
 
-![Chatwoot](https://img.shields.io/badge/Chatwoot-v4.5.3-blue)
-![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)
-![Rails](https://img.shields.io/badge/Rails-7.1.5-CC0000?logo=rubyonrails)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-316192?logo=postgresql)
-![License](https://img.shields.io/badge/License-MIT-green)
+🔗 **Original Repo**: [Chatwoot GitHub](https://github.com/chatwoot/chatwoot) | 📚 **Deploy Guide**: [Documentation](https://www.chatwoot.com/docs/self-hosted)
 
 </div>
 
-## 📖 프로젝트 소개
+---
 
-이 저장소는 [Chatwoot](https://github.com/chatwoot/chatwoot) 오픈소스 고객 지원 플랫폼을 Docker Compose로 간편하게 설치하고 테스트할 수 있도록 구성한 가이드입니다.
+## 📑 목차
 
-### 주요 특징
-
-- ✅ **간편한 설치**: Docker Compose 한 줄로 전체 스택 실행
-- ✅ **올인원 구성**: PostgreSQL + Redis + Chatwoot 웹 서버 + Sidekiq
-- ✅ **실시간 채팅**: WebSocket 기반 양방향 통신
-- ✅ **테스트 페이지**: 즉시 테스트 가능한 위젯 샘플 페이지 포함
-- ✅ **pgvector 지원**: AI 기능을 위한 벡터 검색 확장
+- [프로젝트 개요](#-프로젝트-개요)
+- [시스템 아키텍처](#-시스템-아키텍처)
+- [핵심 기능](#-핵심-기능)
+- [기술 스택](#-기술-스택)
+- [트러블슈팅 및 최적화](#-트러블슈팅-및-최적화)
+- [빠른 시작](#-빠른-시작-quick-start)
+- [프로젝트 구조](#-프로젝트-구조)
 
 ---
 
-## 🛠️ 기술 스택
+## 📋 프로젝트 개요
 
-| 기술 | 버전 | 용도 |
-|------|------|------|
-| **Ruby on Rails** | 7.1.5 | 백엔드 프레임워크 |
-| **PostgreSQL** | 16 with pgvector | 데이터베이스 + AI 벡터 검색 |
-| **Redis** | Alpine | 캐싱 & 세션 관리 |
-| **Sidekiq** | 7.3.1 | 백그라운드 작업 처리 |
-| **Docker** | Latest | 컨테이너화 |
-| **WebSocket** | - | 실시간 통신 |
+이 프로젝트는 오픈소스 고객 지원 솔루션인 **Chatwoot**를 Docker Container 환경에서 **프로덕션 레벨**로 구축한 인프라 프로젝트입니다.
+
+| 항목 | 내용 |
+|------|------|
+| **프로젝트명** | Chatwoot Self-Hosted Architecture |
+| **구축 목표** | Docker Compose를 활용한 Zero-Downtime에 가까운 배포 환경 구성 |
+| **핵심 가치** | **Data Privacy** (데이터 자산화), **Customization**, **Cost Saving** |
+| **주요 구성** | App Server, Worker, DB(pgvector), Cache, WebSocket |
 
 ---
 
-## 🚀 빠른 시작
+## 🏗 시스템 아키텍처
+
+```mermaid
+flowchart TB
+    subgraph Client_Side["Client Side"]
+        User["End User"]
+        Agent["Support Agent"]
+    end
+
+    subgraph Load_Balancer["Load Balancer"]
+        Nginx["Nginx Reverse Proxy"]
+    end
+
+    subgraph Container_Cluster["🐳 Docker Compose Cluster"]
+        Web["Rails App Server"]
+        Worker["Sidekiq Worker"]
+        ActionCable["WebSocket Server"]
+    end
+
+    subgraph Data_Layer["Data Layer"]
+        Postgres[("PostgreSQL + pgvector")]
+        Redis[("Redis Cache/Queue")]
+        Storage["Volume / S3"]
+    end
+
+    User & Agent -->|HTTPS/WSS| Nginx
+    Nginx -->|HTTP| Web
+    Nginx -->|WS| ActionCable
+    
+    Web -->|Read/Write| Postgres
+    Web -->|Cache/Job| Redis
+    
+    Worker -->|Job Consume| Redis
+    Worker -->|Process| Postgres
+    
+    Postgres <-->|Vector Search| Web
+```
+
+---
+
+## ✨ 핵심 기능
+
+```mermaid
+graph TD
+    Root((Chatwoot))
+    
+    Root --> A["옴니채널 통합"]
+    A --> A1["Website Widget"]
+    A --> A2["Facebook / WhatsApp"]
+    A --> A3["Telegram / Line"]
+    A --> A4["Email / API"]
+
+    Root --> B["실시간 통신"]
+    B --> B1["WebSocket (ActionCable)"]
+    B --> B2["실시간 타이핑 감지"]
+    B --> B3["온라인 상태 동기화"]
+
+    Root --> C["협업 도구"]
+    C --> C1["팀 인박스 (Shared Inbox)"]
+    C --> C2["담당자 할당 (Assignment)"]
+    C --> C3["내부 코멘트 (Private Note)"]
+
+    Root --> D["AI & 자동화"]
+    D --> D1["Chatbot 연동 (Dialogflow)"]
+    D --> D2["매크로 답변 (Canned Res)"]
+    D --> D3["pgvector 기반 검색"]
+```
+
+### 1. 🔄 실시간 옴니채널 메시징
+- 웹 위젯, 페이스북, 트위터, 라인 등 다양한 채널을 하나의 **통합 인박스(Inbox)**에서 관리
+- **ActionCable(WebSocket)** 을 통해 딜레이 없는 양방향 통신 구현
+
+### 2. 🤖 AI 및 자동화 준비 (pgvector)
+- PostgreSQL의 **pgvector** 확장을 활성화하여 RAG(검색 증강 생성) 및 AI 봇 연동을 위한 벡터 데이터베이스 환경 구축
+
+### 3. ⚡ 고성능 비동기 처리
+- **Sidekiq + Redis** 조합으로 이메일 발송, 웹훅 처리, 리포트 생성 등 무거운 작업을 백그라운드에서 비동기 처리하여 웹 서버 부하 최소화
+
+---
+
+## 🛠 기술 스택
+
+| 컴포넌트 | 기술 | 버전 | 선정 이유 (Why?) |
+|----------|------|------|------------------|
+| **App Server** | Ruby on Rails | 7.1.5 | 빠르고 안정적인 REST API 및 WebSocket 지원 |
+| **Database** | PostgreSQL | 16 | ACID 트랜잭션 보장 및 pgvector AI 확장성 |
+| **Cache/Queue** | Redis | Alpine | 고성능 인메모리 캐싱 및 Sidekiq 작업 큐 관리 |
+| **Worker** | Sidekiq | 7.3 | 신뢰성 높은 백그라운드 작업 처리 (Retry 메커니즘) |
+| **Infra** | DockerCompose | - | 개발/운영 환경 일치 및 간편한 배포/확장 |
+
+---
+
+## 🔧 트러블슈팅 및 최적화
+
+### 1. 자산 컴파일(Asset Precompile) 속도 이슈
+- **문제**: 초기 `docker-compose up` 시 Webpack 컴파일로 인해 부팅이 5분 이상 지연됨
+- **해결**: 프로덕션용으로 미리 빌드된 Docker Image를 사용하도록 설정 변경, 로컬 볼륨 마운트 최적화
+
+### 2. WebSocket 연결 실패 (CORS)
+- **문제**: Nginx 리버스 프록시 뒤에서 WebSocket 연결이 끊어지는 현상 (400 Bad Request)
+- **해결**: Nginx 설정 헤더 추가 및 Rails `config.hosts` 화이트리스트 등록
+
+```nginx
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection "upgrade";
+```
+
+### 3. Sidekiq 메모리 누수 방지
+- **최적화**: `MALLOC_ARENA_MAX=2` 환경 변수를 적용하여 Ruby의 메모리 단편화 문제 완화 및 Sidekiq 프로세스 안정성 확보
+
+---
+
+## 🚀 빠른 시작 (Quick Start)
 
 ### 사전 요구사항
-
-- Docker Desktop (Windows/Mac) 또는 Docker Engine (Linux)
+- Docker Desktop & Docker Compose
 - Git
-- 8GB+ RAM 권장
+- 4GB RAM 이상 권장
 
-### 1. 저장소 클론
-
+### 1. 설치 및 실행
 ```bash
-git clone https://github.com/당신의계정/chatwoot-portfolio.git
-cd chatwoot-portfolio
-```
+# 1. 저장소 클론
+git clone https://github.com/your-username/chatwoot-setup.git
+cd chatwoot-setup
 
-### 2. 환경 변수 설정
-
-```bash
-# .env.example을 .env로 복사
+# 2. 환경 변수 설정 (보안 필수)
 cp .env.example .env
+# .env 파일 내 POSTGRES_PASSWORD, SECRET_KEY_BASE 수정 필수
 
-# .env 파일 편집 (비밀번호 변경 필수!)
-# POSTGRES_PASSWORD=your_secure_password_here
-# REDIS_PASSWORD=your_redis_password_here
-```
-
-### 3. Chatwoot 실행
-
-```bash
+# 3. 데이터베이스 초기화 및 서비스 실행
+docker-compose run --rm rails bundle exec rails db:chatwoot_prepare
 docker-compose up -d
 ```
 
-### 4. 관리자 계정 생성
-
+### 2. 관리자 계정 생성 (Rails Console)
 ```bash
-docker exec -it chatwoot-web-1 bundle exec rails console
+docker exec -it chatwoot-web-1 sh
 
-# Rails 콘솔에서 실행:
-account = Account.create!(name: 'My Company')
-user = User.create!(
-  email: 'admin@example.com',
-  password: 'SecurePassword123!',
-  password_confirmation: 'SecurePassword123!',
-  name: 'Admin User'
-)
-AccountUser.create!(account: account, user: user, role: :administrator)
+# 컨테이너 내부에서 실행
+bundle exec rails c
+
+# Rails 콘솔 입력
+Account.create!(name: 'My Enterprise')
+User.create!(email: 'admin@example.com', password: 'password123', name: 'Admin', role: 0)
 ```
 
-### 5. 접속
-
-- **관리자 대시보드**: http://localhost:3000
-- **테스트 위젯**: `customer-test.html` 파일을 브라우저로 열기
+### 3. 접속 확인
+- **Admin Dashboard**: [http://localhost:3000](http://localhost:3000)
+- **Test Widget**: `http://localhost:3000/widget_test` (자체 제작 테스트 페이지)
 
 ---
 
 ## 📁 프로젝트 구조
 
 ```
-chatwoot-portfolio/
-├── docker-compose.yml      # Docker 구성 파일
-├── .env.example            # 환경 변수 템플릿
-├── customer-test.html      # 위젯 테스트 페이지
-├── README.md               # 이 파일
-└── .gitignore              # Git 제외 파일
+chatwoot-setup/
+├── 📂 nginx/               # 리버스 프록시 설정
+│   └── default.conf
+├── 📂 storage/             # 영구 데이터 저장소 (Docker Volume)
+│   ├── db/
+│   └── redis/
+├── 📜 docker-compose.yml   # 서비스 오케스트레이션 정의
+├── 📜 .env.example         # 환경 변수 템플릿
+├── 📜 README.md            # 프로젝트 문서
+└── 📜 prepare_db.sh        # DB 초기화 스크립트
 ```
 
 ---
 
-## 🎯 주요 기능
+## 👨‍💻 인프라 엔지니어링 포인트
 
-### 1. 실시간 채팅 위젯
+> **이 프로젝트는 단순한 앱 실행을 넘어 안정적인 운영 환경을 고려하여 설계되었습니다.**
 
-```html
-<!-- 웹사이트에 삽입 -->
-<script>
-  (function(d,t) {
-    var BASE_URL = "http://localhost:3000";
-    var g = d.createElement(t), s = d.getElementsByTagName(t)[0];
-    g.src = BASE_URL + "/packs/js/sdk.js";
-    s.parentNode.insertBefore(g,s);
-    g.onload = function(){
-      window.chatwootSDK.run({
-        websiteToken: 'YOUR_WEBSITE_TOKEN',
-        baseUrl: BASE_URL
-      });
-    };
-  })(document,"script");
-</script>
-```
+- ✅ **Container Orchestration**: Web, Worker, DB 간의 의존성(`depends_on`) 및 헬스체크(`healthcheck`) 구성
+- ✅ **Persistence**: Docker Volume을 활용한 데이터 영속성 보장 (컨테이너 재실행 시 데이터 유지)
+- ✅ **Security**: `.env`를 통한 민감 정보 분리 및 내부 네트워크 격리
 
-### 2. 다중 채널 지원
+### 📜 License
+This project setup guide is under MIT License.
+Chatwoot itself is Copyright © Chatwoot Inc.
 
-- 웹 위젯
-- 이메일
-- Facebook Messenger
-- WhatsApp
-- Telegram
-- Twitter DM
-- LINE (커스텀 통합 가능)
-
-### 3. 팀 협업 기능
-
-- 대화 할당
-- 팀 받은편지함
-- 캐니드 응답 (빠른 답변)
-- 내부 메모
-- 라벨 및 태그
-
----
-
-## 🔧 트러블슈팅
-
-### 포트 충돌
-
-```bash
-# 3000번 포트가 사용 중인 경우
-docker-compose down
-# docker-compose.yml에서 "3000:3000"을 "8080:3000"으로 변경
-docker-compose up -d
-```
-
-### 데이터베이스 초기화
-
-```bash
-docker-compose down
-docker volume rm chatwoot-postgres-data
-docker-compose up -d
-```
-
-### 로그 확인
-
-```bash
-# 전체 로그
-docker-compose logs -f
-
-# 특정 서비스 로그
-docker-compose logs -f web
-```
-
----
-
-## 📊 성능 최적화
-
-### 프로덕션 환경 권장 사항
-
-1. **데이터베이스**
-   - PostgreSQL 설정 튜닝
-   - 정기 백업 설정
-   - Connection pooling
-
-2. **Redis**
-   - 메모리 제한 설정
-   - 영속성 옵션 선택
-
-3. **웹 서버**
-   - Puma worker/thread 최적화
-   - CDN 사용 (정적 파일)
-   - SSL/TLS 인증서 (Let's Encrypt)
-
----
-
-## 🔐 보안 고려사항
-
-### 필수 변경 사항
-
-- [ ] `.env` 파일의 모든 비밀번호 변경
-- [ ] `SECRET_KEY_BASE` 생성 (rails secret)
-- [ ] 방화벽 규칙 설정
-- [ ] HTTPS 설정
-- [ ] Rate limiting 설정
-
-### 데이터베이스 백업
-
-```bash
-# 백업 생성
-docker exec chatwoot-postgres-1 pg_dump -U postgres chatwoot > backup.sql
-
-# 백업 복원
-docker exec -i chatwoot-postgres-1 psql -U postgres chatwoot < backup.sql
-```
-
----
-
-## 📚 학습 포인트
-
-이 프로젝트를 통해 다음을 경험했습니다:
-
-### 인프라 & DevOps
-- Docker Compose를 활용한 마이크로서비스 아키텍처
-- PostgreSQL pgvector 확장 활용
-- Redis 캐싱 전략
-- 환경 변수 관리
-
-### 백엔드 개발
-- Ruby on Rails 7 애플리케이션 구조
-- Active Record 마이그레이션
-- Sidekiq 백그라운드 작업
-- WebSocket 실시간 통신
-
-### 문제 해결
-- 데이터베이스 스키마 불일치 해결
-- Rate limiting (Rack::Attack) 설정
-- CORS 설정
-- 컬럼 누락 문제 디버깅
-
----
-
-## 🌐 외부 접속 설정
-
-### 도메인 연결
-
-1. **DNS 설정**
-   ```
-   A 레코드: chat.yourdomain.com → 서버 IP
-   ```
-
-2. **Nginx 리버스 프록시**
-   ```nginx
-   server {
-       listen 80;
-       server_name chat.yourdomain.com;
-
-       location / {
-           proxy_pass http://localhost:3000;
-           proxy_set_header Host $host;
-           proxy_set_header X-Real-IP $remote_addr;
-       }
-   }
-   ```
-
-3. **SSL 인증서**
-   ```bash
-   sudo certbot --nginx -d chat.yourdomain.com
-   ```
-
----
-
-## 📝 라이선스
-
-이 가이드는 MIT 라이선스로 배포됩니다.
-
-**Chatwoot 원본 프로젝트**:
-- GitHub: [chatwoot/chatwoot](https://github.com/chatwoot/chatwoot)
-- License: MIT
-- Copyright: Chatwoot Inc.
-
----
-
-## 🤝 기여
-
-개선 사항이나 버그 리포트는 이슈로 등록해주세요!
-
----
-
-## 📞 문의
-
-프로젝트 관련 문의: [이메일 주소]
-
----
-
-## 🔗 참고 자료
-
-- [Chatwoot 공식 문서](https://www.chatwoot.com/docs)
-- [Chatwoot API 문서](https://www.chatwoot.com/developers/api)
-- [Docker Compose 문서](https://docs.docker.com/compose/)
-- [PostgreSQL pgvector](https://github.com/pgvector/pgvector)
-
----
-
-<div align="center">
-
-**⭐ 도움이 되었다면 Star를 눌러주세요!**
-
-Made with ❤️ for Customer Support Teams
-
-</div>
+<div align="center">Infrastructure as Code (IaC) Practice Project</div>
